@@ -54,15 +54,19 @@ bool CCublasDll::Load()
 		return true;
 	}
 
+	std::cout << "Loading cublas shared library..." << std::endl;
 	if( !CDll::Load( cublasDllName ) ) {
+		std::cout << "\tFailed to load cublas library" << std::endl;
 		return false;
 	}
 
 	if( !loadFunctions() ) {
+		std::cout << "\tFailed to load cublas functions" << std::endl;
 		CDll::Free();
 		return false;
 	}
 
+	std::cout << "Loading cublas shared library...OK" << std::endl;
 	return true;
 }
 

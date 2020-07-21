@@ -95,10 +95,17 @@ CGpuMathEngineManager::CGpuMathEngineManager() :
 #ifdef NEOML_USE_CUDA
 	if( loader.IsLoaded( CDllLoader::CUDA_DLL ) ) {
 		int deviceCount = 0;
-		if( cudaGetDeviceCount( &deviceCount ) == cudaSuccess ) {
+		std::cout << "Getting CUDA device count..." << std::endl;
+		auto errCode = cudaGetDeviceCount( &deviceCount );
+		if( errCode == cudaSuccess ) {
+			std::cout << "\tFound " << deviceCount << " devices" << std::endl;
 			for( int i = 0; i < deviceCount; i++ ) {
 				cudaDeviceProp devProp;
-				if( cudaGetDeviceProperties( &devProp, i ) == cudaSuccess ) {
+				std::cout << "\tGetting properties of device #" << i << "..." << std::endl;
+				errCode = cudaGetDeviceProperties( &devProp, i );
+				if( errCode == cudaSuccess ) {
+					std::cout << "\t\tDeviceName:\t" << devProp.name << std::endl;
+					std::cout << "\t\tTotalGlobalMem:\t" << devProp.totalGlobalMem << std::endl;
 					CMathEngineInfo deviceInfo;
 					deviceInfo.Type = MET_Cuda;
 					deviceInfo.Id = i;
@@ -106,8 +113,16 @@ CGpuMathEngineManager::CGpuMathEngineManager() :
 					::memset( deviceInfo.Name, 0, sizeof( deviceInfo.Name ) );
 					::strcpy( deviceInfo.Name, devProp.name );
 					info.push_back( deviceInfo );
+					std::cout << "\tGetting properties of device #" << i << "...OK" << std::endl;
+				} else {
+					std::cout << "\tError code:" << errCode << " (\"" << cudaGetErrorString( static_cast<cudaError_t>( errCode ) ) << "\")" << std::endl;
+					std::cout << "\tGetting properties of device #" << i << "...FAIL" << std::endl;
 				}
 			}
+			std::cout << "Getting CUDA device count...OK" << std::endl;
+		} else {
+			std::cout << "\tError code:" << errCode << " (\"" << cudaGetErrorString( static_cast<cudaError_t>( errCode ) ) << "\")" << std::endl;
+			std::cout << "Getting CUDA device count...FAIL" << std::endl;
 		}
 	}
 #endif
@@ -168,14 +183,19 @@ static CCudaDevice* captureCudaDevice( int deviceNumber, size_t deviceMemoryLimi
 		return captureSpecifiedCudaDevice( deviceNumber, deviceMemoryLimit );
 	}
 
+	std::cout << "Capturing CUDA device..." << std::endl;
 	int deviceCount = 0;
 	ASSERT_ERROR_CODE( cudaGetDeviceCount( &deviceCount ) );
+	std::cout << "\tFound " << deviceCount << " devices" << std::endl;
 
 	// Detect the devices and their processing load
 	vector<CCudaDevUsage> devs;
 	for( int i = 0; i < deviceCount; ++i ) {
 		cudaDeviceProp devProp;
 		ASSERT_ERROR_CODE( cudaGetDeviceProperties( &devProp, i ) );
+		std::cout << "\t\tDeviceNum:\t#" << i << std::endl;
+		std::cout << "\t\tDeviceName:\t" << devProp.name << std::endl;
+		std::cout << "\t\tTotalGlobalMem:\t" << devProp.totalGlobalMem << std::endl;
 
 		CCudaDevUsage dev;
 		dev.DevNum = i;
@@ -185,6 +205,8 @@ static CCudaDevice* captureCudaDevice( int deviceNumber, size_t deviceMemoryLimi
 				++dev.Usage;
 			}
 		}
+		std::cout << "\t\tUsage:\t" << dev.Usage << "/" << CUDA_DEV_SLOT_COUNT << std::endl;
+		std::cout << std::endl;
 		devs.push_back(dev);
 	}
 	// Sort the devices in order of increasing load
@@ -193,10 +215,13 @@ static CCudaDevice* captureCudaDevice( int deviceNumber, size_t deviceMemoryLimi
 	for( size_t i = 0; i < devs.size(); ++i ) {
 		CCudaDevice* result = captureSpecifiedCudaDevice( devs[i].DevNum, deviceMemoryLimit );
 		if( result != nullptr ) {
+			std::cout << "\tCaptured device #" << devs[i].DevNum << std::endl;
+			std::cout << "Capturing CUDA device...OK" << std::endl;
 			return result;
 		}
 	}
 
+	std::cout << "Capturing CUDA device...FAIL" << std::endl;
 	return nullptr;
 }
 
@@ -208,12 +233,15 @@ IMathEngine* CGpuMathEngineManager::CreateMathEngine( int index, size_t memoryLi
 	if( size == 0 || index >= size ) {
 		return nullptr;
 	}
+	std::cout << "CGpuMathEngineManager::CreateMathEngine with type " << info[index >= 0 ? index : 0].Type << std::endl;
 	switch(info[index >= 0 ? index : 0].Type) {
 #ifdef NEOML_USE_CUDA
 	case MET_Cuda:
 	{
+		std::cout << "CGpuMathEngineManager::CreateMathEngine for CUDA" << std::endl;
 		std::unique_ptr<CCudaDevice> device( captureCudaDevice( index >= 0 ? info[index].Id : -1, memoryLimit ) );
 		if( device == nullptr ) {
+			std::cout << "device == nullptr" << std::endl;
 			return nullptr;
 		}
 		return new CCudaMathEngine( CDllLoader::cusparseDll->GetFunctions(), CDllLoader::cublasDll->GetFunctions(), device );
@@ -230,6 +258,7 @@ IMathEngine* CGpuMathEngineManager::CreateMathEngine( int index, size_t memoryLi
 	case MET_Undefined:
 	default:
 	{
+		std::cout << "CGpuMathEngineManager::CreateMathEngine return nullptr" << std::endl;
 		memoryLimit;
 		return nullptr;
 	}

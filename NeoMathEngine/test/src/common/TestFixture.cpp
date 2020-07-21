@@ -80,6 +80,7 @@ int RunTests( int argc, char* argv[] )
 	auto type = GetMathEngineArgType( argc, argv );
 	if( type == TMathEngineArgType::Gpu ) {
 		mathEngine = CreateGpuMathEngine( 0 );
+			std::cout.flush();
 		if( mathEngine != nullptr ) {
 			CMathEngineInfo info;
 			mathEngine->GetMathEngineInfo( info );

@@ -19,6 +19,9 @@ limitations under the License.
 #include <new>
 #include <NeoMathEngine/NeoMathEngine.h>
 
+#include <iostream>
+#include <ostream>
+
 #define __merge__2( a, b )	a##b
 #define __merge__1( a, b )	__merge__2( a, b )
 #define __UNICODEFILE__	__merge__1( L, __FILE__ )
@@ -37,6 +40,7 @@ inline void generateMemoryError( NeoML::IMathEngineExceptionHandler* exceptionHa
 	do { \
 		int _err_ = (int)(expr); \
 		if(_err_ != 0) { \
+			std::cout << "ASSERT_ERROR_CODE at " << __FILE__ << ':' << __LINE__ << "\t(" << #expr << ")\tErrCode: " << _err_ << std::endl; \
 			NeoML::IMathEngineExceptionHandler* exceptionHandler = GetMathEngineExceptionHandler(); \
 			if( exceptionHandler != 0 ) { \
 				generateAssert( exceptionHandler, #expr, __UNICODEFILE__, __LINE__, _err_ ); \
@@ -49,6 +53,7 @@ inline void generateMemoryError( NeoML::IMathEngineExceptionHandler* exceptionHa
 #define ASSERT_EXPR( expr ) \
 	do { \
 		if(!(expr)) { \
+			std::cout << "ASSERT_EXPR at " << __FILE__ << ':' << __LINE__ << "\t(" << #expr << ")" << std::endl; \
 			NeoML::IMathEngineExceptionHandler* exceptionHandler = GetMathEngineExceptionHandler(); \
 			if( exceptionHandler != 0 ) { \
 				generateAssert( exceptionHandler, #expr, __UNICODEFILE__, __LINE__, 0 ); \
@@ -61,6 +66,7 @@ inline void generateMemoryError( NeoML::IMathEngineExceptionHandler* exceptionHa
 #define THROW_MEMORY_EXCEPTION \
 	do { \
 		NeoML::IMathEngineExceptionHandler* exceptionHandler = GetMathEngineExceptionHandler(); \
+		std::cout << "THROW_MEMORY_EXCEPTION at " << __FILE__ << ':' << __LINE__ << std::endl; \
 		if( exceptionHandler != 0 ) { \
 			generateMemoryError( exceptionHandler ); \
 		} else { \

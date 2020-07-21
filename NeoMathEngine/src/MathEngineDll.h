@@ -17,6 +17,9 @@ limitations under the License.
 
 #include <NeoMathEngine/NeoMathEngineDefs.h>
 
+#include <iostream>
+#include <ostream>
+
 #if FINE_PLATFORM( FINE_WINDOWS )
 #include <windows.h>
 #elif FINE_PLATFORM( FINE_ANDROID ) || FINE_PLATFORM( FINE_LINUX )

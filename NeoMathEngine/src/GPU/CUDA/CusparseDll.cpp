@@ -53,15 +53,19 @@ bool CCusparseDll::Load()
 		return true;
 	}
 
+	std::cout << "Loading cusparse shared library..." << std::endl;
 	if( !CDll::Load( cusparseDllName ) ) {
+		std::cout << "\tFailed to load cusparse library" << std::endl;
 		return false;
 	}
 
 	if( !loadFunctions() ) {
+		std::cout << "\tFailed to load cusparse functions" << std::endl;
 		CDll::Free();
 		return false;
 	}
 
+	std::cout << "Loading cusparse shared library...OK" << std::endl;
 	return true;
 }
 
