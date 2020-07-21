@@ -142,8 +142,7 @@ if((WIN32 OR LINUX) AND CMAKE_SIZEOF_VOID_P EQUAL 8)
         enable_language(CUDA)
         
         target_compile_definitions(${PROJECT_NAME} PRIVATE NEOML_USE_CUDA)
-        target_compile_options(${PROJECT_NAME} PRIVATE $<$<COMPILE_LANGUAGE:CUDA>:-gencode arch=compute_50,code=sm_50>
-                                                       $<$<COMPILE_LANGUAGE:CUDA>:-gencode arch=compute_35,code=sm_35>)
+        target_compile_options(${PROJECT_NAME} PRIVATE $<$<COMPILE_LANGUAGE:CUDA>:-gencode arch=compute_50,code=sm_50,arch=compute_35,code=sm_35>)
         
         target_sources(${PROJECT_NAME}
             PRIVATE
