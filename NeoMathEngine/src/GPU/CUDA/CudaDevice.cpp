@@ -134,8 +134,13 @@ bool IsDeviceSlotFree( int deviceId, int slotIndex )
 		if( isFree ) {
 			// Semaphore was free, removing it from the system.
 			::sem_unlink( name.c_str() );
+			std::cout << "\t\t\tsem_open(device: " << deviceId << ",\tslot: " << slotIndex << ") is free" << std::endl;
+		} else {
+			std::cout << "\t\t\tsem_open(device: " << deviceId << ",\tslot: " << slotIndex << ") failed with value " << value << std::endl;
 		}
 		return isFree;
+	} else {
+		std::cout << "\t\t\tsem_open(device: " << deviceId << ",\tslot: " << slotIndex << ") failed with code " << errno << std::endl;
 	}
 	return false;
 }
