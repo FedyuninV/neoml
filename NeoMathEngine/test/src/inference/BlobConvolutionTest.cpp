@@ -15,6 +15,8 @@ limitations under the License.
 
 #include <TestFixture.h>
 
+#include <memory>
+
 using namespace NeoML;
 using namespace NeoMLTest;
 
@@ -503,3 +505,154 @@ TEST_P( CMathEngineBlobConvolutionTest, Random )
 {
 	RUN_TEST_IMPL( blobConvolutionImpl );
 }
+
+namespace NeoMLTest {
+
+struct CDilatedConvTestParams
+{
+	CDilatedConvTestParams( int batchSize, int inputHeight, int inputWidth, int inputChannels,
+		int filterCount, int filterHeight, int filterWidth,
+		int strideHeight, int strideWidth,
+		int paddingHeight, int paddingWidth,
+		int dilationHeight, int dilationWidth ) :
+		BatchSize( batchSize ),
+		InputHeight( inputHeight ),
+		InputWidth( inputWidth ),
+		InputChannels( inputChannels ),
+		FilterCount( filterCount ),
+		FilterHeight( filterHeight ),
+		FilterWidth( filterWidth ),
+		StrideHeight( strideHeight ),
+		StrideWidth( strideWidth ),
+		PaddingHeight( paddingHeight ),
+		PaddingWidth( paddingWidth ),
+		DilationHeight( dilationHeight ),
+		DilationWidth( dilationWidth )
+	{
+	}
+
+	int BatchSize;
+	int InputHeight;
+	int InputWidth;
+	int InputChannels;
+	int FilterCount;
+	int FilterHeight;
+	int FilterWidth;
+	int StrideHeight;
+	int StrideWidth;
+	int PaddingHeight;
+	int PaddingWidth;
+	int DilationHeight;
+	int DilationWidth;
+};
+
+} // namespace NeoMLTest
+
+class CDilatedConvolutionNetTest : public CTestFixture, public ::testing::WithParamInterface<CDilatedConvTestParams>
+{
+};
+
+TEST_P( CDilatedConvolutionNetTest, FindText )
+{
+	const CDilatedConvTestParams& params = GetParam();
+	IMathEngine& mathEngine = MathEngine();
+	CRandom random( 0x124325 );
+	const int runCount = 1000;
+
+	CFloatBlob inputBlob( mathEngine, params.BatchSize, params.InputHeight, params.InputWidth, params.InputChannels );
+	CFloatBlob filterBlob( mathEngine, params.FilterCount, params.FilterHeight, params.FilterWidth, params.InputChannels );
+	CFloatBlob freeTermBlob( mathEngine, 1, 1, 1, params.FilterCount );
+	CFloatBlob outputBlob( mathEngine, params.BatchSize,
+		calcConvOutputSize( params.InputHeight, params.PaddingHeight, params.FilterHeight, params.DilationHeight, params.StrideHeight ),
+		calcConvOutputSize( params.InputWidth, params.PaddingWidth, params.FilterWidth, params.DilationWidth, params.StrideWidth ),
+		params.FilterCount );
+	{
+		CREATE_FILL_FLOAT_ARRAY( inputBuff, -1.f, 2.f, inputBlob.GetDataSize(), random );
+		inputBlob.CopyFrom( inputBuff.data() );
+		CREATE_FILL_FLOAT_ARRAY( filterBuff, -1.f, 2.f, filterBlob.GetDataSize(), random );
+		filterBlob.CopyFrom( filterBuff.data() );
+		CREATE_FILL_FLOAT_ARRAY( freeTermBuff, -1.f, 2.f, freeTermBlob.GetDataSize(), random );
+		freeTermBlob.CopyFrom( freeTermBuff.data() );
+	}
+
+	std::unique_ptr<CConvolutionDesc> convDesc( mathEngine.InitBlobConvolution( inputBlob.GetDesc(), params.PaddingHeight, params.PaddingWidth,
+		params.StrideHeight, params.StrideWidth, params.DilationHeight, params.DilationWidth, filterBlob.GetDesc(), outputBlob.GetDesc() ) );
+
+	std::vector<float> outputBuff( outputBlob.GetDataSize() );
+
+	std::unique_ptr<IPerformanceCounters> counters( mathEngine.CreatePerformanceCounters() );
+	counters->Synchronise();
+	for( int run = 0; run < runCount; ++run ) {
+		mathEngine.BlobConvolution( *convDesc, inputBlob.GetData(), filterBlob.GetData(), &freeTermBlob.GetData(), outputBlob.GetData() );
+		outputBlob.CopyTo( outputBuff.data() );
+	}
+	counters->Synchronise();
+
+	for( const auto& counter : *counters ) {
+		GTEST_LOG_( INFO ) << counter.Name << ": " << counter.Value;
+		GTEST_LOG_( INFO ) << "peak memory usage: " << ( MathEngine().GetPeakMemoryUsage() / 1024 ) << " Kb";
+	}
+	counters.release();
+}
+
+
+INSTANTIATE_TEST_CASE_P( CDilatedConvolutionNetTestInstantiation, CDilatedConvolutionNetTest,
+	::testing::Values(
+		CDilatedConvTestParams(
+			1, 1024, 1024, 3, // Input size (BxHxWxC)
+			16, 5, 5, // Filter (NxHxW)
+			2, 2, // Stride (HxW)
+			2, 2, // Padding (HxW)
+			1, 1 // Dilation (HxW)
+		),
+		CDilatedConvTestParams(
+			1, 512, 512, 16, // Input size (BxHxWxC)
+			24, 3, 3, // Filter (NxHxW)
+			2, 2, // Stride (HxW)
+			1, 1, // Padding (HxW)
+			1, 1 // Dilation (HxW)
+		),
+		CDilatedConvTestParams(
+			1, 256, 256, 24, // Input size (BxHxWxC)
+			24, 3, 3, // Filter (NxHxW)
+			1, 1, // Stride (HxW)
+			1, 1, // Padding (HxW)
+			1, 1 // Dilation (HxW)
+		),
+		CDilatedConvTestParams(
+			1, 256, 256, 24, // Input size (BxHxWxC)
+			24, 3, 3, // Filter (NxHxW)
+			1, 1, // Stride (HxW)
+			2, 2, // Padding (HxW)
+			2, 2 // Dilation (HxW)
+		),
+		CDilatedConvTestParams(
+			1, 256, 256, 24, // Input size (BxHxWxC)
+			16, 3, 3, // Filter (NxHxW)
+			1, 1, // Stride (HxW)
+			4, 4, // Padding (HxW)
+			4, 4 // Dilation (HxW)
+		),
+		CDilatedConvTestParams(
+			1, 256, 256, 16, // Input size (BxHxWxC)
+			16, 3, 3, // Filter (NxHxW)
+			1, 1, // Stride (HxW)
+			8, 8, // Padding (HxW)
+			8, 8 // Dilation (HxW)
+		),
+		CDilatedConvTestParams(
+			1, 256, 256, 16, // Input size (BxHxWxC)
+			16, 3, 3, // Filter (NxHxW)
+			1, 1, // Stride (HxW)
+			1, 1, // Padding (HxW)
+			1, 1 // Dilation (HxW)
+		),
+		CDilatedConvTestParams(
+			1, 256, 256, 16, // Input size (BxHxWxC)
+			1, 1, 1, // Filter (NxHxW)
+			1, 1, // Stride (HxW)
+			0, 0, // Padding (HxW)
+			1, 1 // Dilation (HxW)
+		)
+	)
+);
