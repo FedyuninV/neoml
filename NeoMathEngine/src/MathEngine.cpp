@@ -144,89 +144,6 @@ void CGpuMathEngineManager::GetMathEngineInfo( int index, CMathEngineInfo& resul
 	}
 }
 
-#ifdef NEOML_USE_CUDA
-
-struct CCudaDevUsage {
-	int DevNum;
-	int Usage;
-};
-
-static CCudaDevice* captureSpecifiedCudaDevice( int deviceNumber, size_t deviceMemoryLimit )
-{
-	CCudaDevice* result = new CCudaDevice( deviceNumber, deviceMemoryLimit );
-
-	cudaDeviceProp devProp;
-	ASSERT_ERROR_CODE( cudaGetDeviceProperties(&devProp, deviceNumber) );
-	size_t slotSize = devProp.totalGlobalMem / CUDA_DEV_SLOT_COUNT;
-	int slotCount = static_cast<int>( ( result->MemoryLimit + slotSize - 1 ) / slotSize );
-
-	int capturedSlotCount = 0;
-	for( int i = 0; capturedSlotCount < slotCount && i < CUDA_DEV_SLOT_COUNT; ++i ) {
-		result->Handles[i] = CaptureDeviceSlot(result->DeviceId, i, false);
-		if( result->Handles[i] != nullptr ) {
-			++capturedSlotCount;
-		}
-	}
-
-	if( capturedSlotCount < slotCount ) {
-		delete result;
-		return 0;
-	}
-
-	return result;
-}
-
-// Captures the CUDA device
-static CCudaDevice* captureCudaDevice( int deviceNumber, size_t deviceMemoryLimit )
-{
-	if( deviceNumber >= 0 ) {
-		return captureSpecifiedCudaDevice( deviceNumber, deviceMemoryLimit );
-	}
-
-	std::cout << "Capturing CUDA device..." << std::endl;
-	int deviceCount = 0;
-	ASSERT_ERROR_CODE( cudaGetDeviceCount( &deviceCount ) );
-	std::cout << "\tFound " << deviceCount << " devices" << std::endl;
-
-	// Detect the devices and their processing load
-	vector<CCudaDevUsage> devs;
-	for( int i = 0; i < deviceCount; ++i ) {
-		cudaDeviceProp devProp;
-		ASSERT_ERROR_CODE( cudaGetDeviceProperties( &devProp, i ) );
-		std::cout << "\t\tDeviceNum:\t#" << i << std::endl;
-		std::cout << "\t\tDeviceName:\t" << devProp.name << std::endl;
-		std::cout << "\t\tTotalGlobalMem:\t" << devProp.totalGlobalMem << std::endl;
-
-		CCudaDevUsage dev;
-		dev.DevNum = i;
-		dev.Usage = 0;
-		for( int j = 0; j < CUDA_DEV_SLOT_COUNT; ++j ) {
-			if( !IsDeviceSlotFree( devProp.pciBusID, j ) ) {
-				++dev.Usage;
-			}
-		}
-		std::cout << "\t\tUsage:\t" << dev.Usage << "/" << CUDA_DEV_SLOT_COUNT << std::endl;
-		std::cout << std::endl;
-		devs.push_back(dev);
-	}
-	// Sort the devices in order of increasing load
-	std::sort( devs.begin(), devs.end(), []( const CCudaDevUsage& a, const CCudaDevUsage& b ) { return a.Usage > b.Usage; } );
-
-	for( size_t i = 0; i < devs.size(); ++i ) {
-		CCudaDevice* result = captureSpecifiedCudaDevice( devs[i].DevNum, deviceMemoryLimit );
-		if( result != nullptr ) {
-			std::cout << "\tCaptured device #" << devs[i].DevNum << std::endl;
-			std::cout << "Capturing CUDA device...OK" << std::endl;
-			return result;
-		}
-	}
-
-	std::cout << "Capturing CUDA device...FAIL" << std::endl;
-	return nullptr;
-}
-
-#endif // NEOML_USE_CUDA
-
 IMathEngine* CGpuMathEngineManager::CreateMathEngine( int index, size_t memoryLimit ) const
 {
 	auto size = static_cast<int>(info.size());
@@ -239,7 +156,7 @@ IMathEngine* CGpuMathEngineManager::CreateMathEngine( int index, size_t memoryLi
 	case MET_Cuda:
 	{
 		std::cout << "CGpuMathEngineManager::CreateMathEngine for CUDA" << std::endl;
-		std::unique_ptr<CCudaDevice> device( captureCudaDevice( index >= 0 ? info[index].Id : -1, memoryLimit ) );
+		std::unique_ptr<CCudaDevice> device( CaptureCudaDevice( index >= 0 ? info[index].Id : -1, memoryLimit ) );
 		if( device == nullptr ) {
 			std::cout << "device == nullptr" << std::endl;
 			return nullptr;
