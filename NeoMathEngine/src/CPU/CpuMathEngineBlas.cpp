@@ -769,7 +769,7 @@ void CCpuMathEngine::MultiplyMatrixByMatrix( int batchSize, const CConstFloatHan
 
 	for( int b = 0; b < batchSize; ++b ) {
 		multiplyMatrixByMatrix( first, firstHeight, firstWidth, firstWidth, second, 
-			secondWidth, secondWidth, result, secondWidth, firstHeight * secondWidth );
+			secondWidth, secondWidth, result, secondWidth );
 		first += firstHeight * firstWidth;
 		second += firstWidth * secondWidth;
 		result += firstHeight * secondWidth;
@@ -781,16 +781,20 @@ void CCpuMathEngine::MultiplyTransposedMatrixByMatrixAndAdd(const CConstFloatHan
 	const CConstFloatHandle& secondHandle, int secondWidth, int secondRowSize,
 	const CFloatHandle& resultHandle, int resultRowSize, int resultBufferSize)
 {
+	ASSERT_EXPR( ( firstWidth - 1 ) * resultRowSize + secondWidth <= resultBufferSize );
+
 	multiplyTransposedMatrixByMatrixAndAdd( GetRaw( firstHandle ),
 		firstHeight, firstWidth, firstRowSize, GetRaw( secondHandle ), secondWidth, secondRowSize,
-		GetRaw( resultHandle ), resultRowSize, resultBufferSize );
+		GetRaw( resultHandle ), resultRowSize );
 }
 
 void CCpuMathEngine::MultiplyTransposedMatrixByMatrix(int batchSize, const CConstFloatHandle& firstHandle, int firstHeight,
 	int firstWidth, const CConstFloatHandle& secondHandle, int secondWidth, const CFloatHandle& resultHandle, int resultBufferSize)
 {
-	batchMultiplyTransposedMatrixByMatrix(batchSize, GetRaw( firstHandle ), firstHeight, firstWidth,
-		GetRaw( secondHandle ), secondWidth, GetRaw( resultHandle ), resultBufferSize);
+	ASSERT_EXPR( resultBufferSize >= batchSize * firstWidth * secondWidth );
+
+	batchMultiplyTransposedMatrixByMatrix( batchSize, GetRaw( firstHandle ), firstHeight, firstWidth,
+		GetRaw( secondHandle ), secondWidth, GetRaw( resultHandle ) );
 }
 
 void CCpuMathEngine::batchMultiplyMatrixByTransposedMatrix( int batchSize, const CConstFloatHandle& firstHandle, int firstHeight,
@@ -837,7 +841,7 @@ void CCpuMathEngine::MultiplyMatrixByTransposedMatrix(const CConstFloatHandle& f
 
 			multiplyMatrixByTransposedMatrix( firstData, firstHeightCount, firstWidth, firstRowSize,
 				secondData, secondHeightCount, secondRowSize,
-				resultData, resultRowSize, resultRowSize * firstHeight );
+				resultData, resultRowSize );
 		}
 	}
 }
@@ -863,14 +867,10 @@ void CCpuMathEngine::MultiplyMatrixByTransposedMatrix( int batchSize, const CCon
 
 void CCpuMathEngine::batchMultiplyTransposedMatrixByMatrix( int batchSize,
 	const float* first, int firstHeight, int firstWidth,
-	const float* second, int secondWidth,
-	float* result, int resultBufferSize )
+	const float* second, int secondWidth, float* result )
 {
-	assert( resultBufferSize >= batchSize * firstWidth * secondWidth );
-	
 	for( int b = 0; b < batchSize; ++b ) {
-		multiplyTransposedMatrixByMatrix( first, firstHeight, firstWidth, second, secondWidth,
-			result, firstWidth * secondWidth );
+		multiplyTransposedMatrixByMatrix( first, firstHeight, firstWidth, second, secondWidth, result );
 
 		first += firstHeight * firstWidth;
 		second += firstHeight * secondWidth;
