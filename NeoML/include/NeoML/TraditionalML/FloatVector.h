@@ -18,6 +18,7 @@ limitations under the License.
 #include <NeoML/NeoMLDefs.h>
 #include <NeoML/TraditionalML/SparseFloatVector.h>
 #include <NeoML/TraditionalML/VectorIterator.h>
+#include <NeoMathEngine/NeoMathEngineDefs.h>
 
 #include <cstddef>
 
@@ -167,6 +168,42 @@ inline CFloatVector::TIterator CFloatVector::end()
 	return TIterator( CopyOnWrite() + Size() );
 }
 
+inline float DenseDotProduct( const float* first, const float* second, int vectorSize )
+{
+	float acc = 0;
+#ifdef NEOML_USE_SSE
+	int sseSize = vectorSize / 4;
+	int nonSseSize = vectorSize % 4;
+
+	if(sseSize > 0) {
+		__m128 sum = _mm_setzero_ps();
+		for(int i = 0; i < sseSize; ++i) {
+			sum = _mm_add_ps(sum, _mm_mul_ps(_mm_loadu_ps(first), _mm_loadu_ps(second)));
+
+			first += 4;
+			second += 4;
+		}
+
+		__m128 tmp = _mm_shuffle_ps(sum, sum, _MM_SHUFFLE(0, 3, 2, 1));
+		sum = _mm_add_ps(sum, tmp);
+		tmp = _mm_shuffle_ps(sum, sum, _MM_SHUFFLE(1, 0, 3, 2));
+		sum = _mm_add_ss(sum, tmp);
+
+		acc += _mm_cvtss_f32(sum);
+	}
+
+	for(int i = 0; i < nonSseSize; ++i) {
+		acc += *first++ * *second++;
+	}
+#else
+	for(int i = 0; i < vectorSize; ++i) {
+		acc += *first++ * *second++;
+	}
+#endif
+
+	return acc;
+}
+
 // The dot product of two vectors
 inline double DotProduct( const CFloatVectorDesc& vector1, const CFloatVectorDesc& vector2 )
 {
@@ -180,9 +217,7 @@ inline double DotProduct( const CFloatVectorDesc& vector1, const CFloatVectorDes
 	if( vector1.Indexes == nullptr ) {
 		if( vector2.Indexes == nullptr ) {
 			const int size = min( vector1.Size, vector2.Size );
-			for( int i = 0; i < size; i++ ) {
-				sum += static_cast<double>( vector1.Values[i] ) * vector2.Values[i];
-			}
+			sum = static_cast<double>( DenseDotProduct( vector1.Values, vector2.Values, size ) );
 		} else {
 			denseBySparse( vector1, vector2, sum );
 		}

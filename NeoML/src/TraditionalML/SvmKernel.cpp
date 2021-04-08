@@ -23,6 +23,7 @@ limitations under the License.
 #pragma hdrstop
 
 #include <NeoML/TraditionalML/SvmKernel.h>
+#include <NeoMathEngine/NeoMathEngineDefs.h>
 
 namespace NeoML {
 
@@ -130,19 +131,32 @@ double CSvmKernel::rbfDenseBySparse( const CFloatVectorDesc& x1, const CFloatVec
 
 double CSvmKernel::rbfDenseByDense( const CFloatVectorDesc& x1, const CFloatVectorDesc& x2 ) const
 {
-	double square = 0;
-	double diff;
+	float square = 0;
 	const int minSize = min( x1.Size, x2.Size );
 	int i = 0;
+#ifdef NEOML_USE_SSE
+	__m128 sseSquare = _mm_setzero_ps();
+	for( ; i + 4 <= minSize; i += 4 ) {
+		__m128 sseDiff = _mm_sub_ps( _mm_loadu_ps( x1.Values + i ), _mm_loadu_ps( x2.Values + i ) );
+		sseSquare = _mm_add_ps( sseSquare, _mm_mul_ps( sseDiff, sseDiff ) );
+	}
+	__m128 tmp = _mm_shuffle_ps(sseSquare, sseSquare, _MM_SHUFFLE(0, 3, 2, 1));
+	sseSquare = _mm_add_ps(sseSquare, tmp);
+	tmp = _mm_shuffle_ps(sseSquare, sseSquare, _MM_SHUFFLE(1, 0, 3, 2));
+	sseSquare = _mm_add_ss(sseSquare, tmp);
+	square += _mm_cvtss_f32(sseSquare);
+	// The cycle below will add non-sse part
+#endif
+	float diff;
 	for( ; i < minSize; ++i ) {
 		diff = x1.Values[i] - x2.Values[i];
 		square += diff * diff;
 	}
-	for( ; i < x1.Size; ++i ) {
-		square += x1.Values[i] * x1.Values[i];
+	if( i < x1.Size ) {
+		square += DenseDotProduct( x1.Values + i, x1.Values + i, x1.Size - i );
 	}
-	for( ; i < x2.Size; ++i ) {
-		square += x2.Values[i] * x2.Values[i];
+	if( i < x2.Size ) {
+		square += DenseDotProduct( x2.Values + i, x2.Values + i, x2.Size - i );
 	}
 	return exp(-gamma * square);
 }
