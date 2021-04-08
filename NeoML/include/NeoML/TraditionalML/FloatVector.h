@@ -22,6 +22,14 @@ limitations under the License.
 
 #include <cstddef>
 
+#ifdef NEOML_USE_SSE
+#if FINE_PLATFORM( FINE_WINDOWS )
+#include <intrin.h>
+#elif FINE_PLATFORM(FINE_LINUX) || FINE_PLATFORM(FINE_DARWIN) || FINE_PLATFORM(FINE_ANDROID) || FINE_PLATFORM(FINE_IOS)
+#include <x86intrin.h>
+#endif
+#endif
+
 namespace NeoML {
 
 class CFloatVector;
